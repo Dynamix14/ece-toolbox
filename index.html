@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ECE Toolbox — interactive electronics calculators</title>
+<meta name="description" content="A tiny offline toolbox for everyday electronics math: resistor color codes, Ohm's law, voltage dividers, and RC filter cutoffs.">
+<meta property="og:title" content="ECE Toolbox">
+<meta property="og:description" content="Interactive calculators for resistor codes, Ohm's law, voltage dividers and RC filters. Single file, no build step.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔧</text></svg>">
+<style>
+  *{box-sizing:border-box}
+  :root{
+    --bg:#080b10; --panel:#0f141c; --panel2:#131a24; --line:#212a38;
+    --text:#e8edf4; --muted:#8a94a6; --accent:#3ee0b0; --accent2:#6aa9ff;
+    --danger:#ff6b7a; --radius:14px;
+    --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+  }
+  html,body{margin:0}
+  body{
+    background:
+      radial-gradient(1200px 600px at 12% -10%, #12203a 0%, transparent 60%),
+      radial-gradient(900px 520px at 110% 5%, #06231d 0%, transparent 55%),
+      var(--bg);
+    color:var(--text);
+    font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    min-height:100vh; -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1020px;margin:0 auto;padding:30px 20px 64px}
+  header.top{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:22px}
+  h1{font-size:26px;margin:0;letter-spacing:-.02em;font-weight:700}
+  h1 .dot{color:var(--accent)}
+  .tagline{color:var(--muted);font-size:13.5px;margin:5px 0 0}
+  .badges{display:flex;gap:8px;font-size:12px}
+  .badges a{color:var(--muted);text-decoration:none;border:1px solid var(--line);padding:5px 11px;border-radius:999px;transition:.15s}
+  .badges a:hover{color:var(--text);border-color:#33405a}
+  nav.tabs{display:flex;gap:6px;background:var(--panel);border:1px solid var(--line);padding:6px;border-radius:12px;margin-bottom:18px;overflow-x:auto}
+  .tab{flex:1;white-space:nowrap;background:transparent;border:0;color:var(--muted);font:inherit;font-weight:600;font-size:14px;padding:9px 14px;border-radius:8px;cursor:pointer;transition:.15s}
+  .tab:hover{color:var(--text)}
+  .tab.active{background:linear-gradient(180deg,#1c2634,#161e2a);color:var(--text);box-shadow:inset 0 0 0 1px #2b394d}
+  .tab:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .card{background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--line);border-radius:var(--radius);padding:22px}
+  .tool{display:none}
+  .tool.active{display:block;animation:fade .18s ease-out}
+  @keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  label.fld{display:block;font-size:11.5px;color:var(--muted);font-weight:700;letter-spacing:.06em;margin-bottom:7px;text-transform:uppercase}
+  input[type=text]{width:100%;background:#0a0f16;border:1px solid var(--line);color:var(--text);font:15px var(--mono);padding:11px 13px;border-radius:10px;outline:none;transition:.15s}
+  input[type=text]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(62,224,176,.12)}
+  input.computed{color:var(--accent);border-style:dashed}
+  input.invalid{border-color:var(--danger);box-shadow:0 0 0 3px rgba(255,107,122,.1)}
+  .hint{font-size:12px;color:var(--muted);margin-top:8px}
+  .readout{margin-top:20px;padding:16px 18px;background:#0a0f16;border:1px solid var(--line);border-radius:12px;display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 14px}
+  .readout .big{font:600 30px var(--mono);color:var(--accent);letter-spacing:-.01em}
+  .readout .sub{color:var(--muted);font:13px var(--mono)}
+  .err{color:var(--danger);font-size:13px;margin-top:10px;min-height:18px}
+  /* resistor */
+  .res-stage{display:flex;align-items:center;justify-content:center;margin:8px 0 20px;height:72px}
+  .res-lead{width:64px;height:4px;background:linear-gradient(90deg,transparent,#4a5262);border-radius:2px}
+  .res-lead.r{background:linear-gradient(270deg,transparent,#4a5262)}
+  .res-shape{display:flex;align-items:center;justify-content:space-around;width:250px;height:58px;border-radius:29px;background:linear-gradient(180deg,#ddcfae,#b9a37e);box-shadow:inset 0 -7px 14px rgba(0,0,0,.28),0 6px 18px rgba(0,0,0,.35);padding:0 30px}
+  .band{width:13px;height:58px;border-radius:2px;box-shadow:inset 0 0 0 1px rgba(0,0,0,.3)}
+  .band-list{display:grid;gap:8px}
+  .band-row{display:flex;align-items:center;gap:12px;background:#0a0f16;border:1px solid var(--line);border-radius:10px;padding:8px 12px;cursor:pointer;user-select:none;transition:.15s}
+  .band-row:hover{border-color:#33405a}
+  .band-row:focus-visible,.band-row:focus{outline:2px solid var(--accent);outline-offset:2px}
+  .sw{width:26px;height:26px;border-radius:6px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.18);flex:none}
+  .band-row .who{font-size:11.5px;color:var(--muted);font-weight:700;letter-spacing:.06em;text-transform:uppercase;width:74px;flex:none}
+  .band-row .cname{font:13px var(--mono);color:var(--text)}
+  .band-row .cval{margin-left:auto;font:12px var(--mono);color:var(--muted)}
+  /* segmented toggle */
+  .seg{display:inline-flex;background:#0a0f16;border:1px solid var(--line);border-radius:10px;padding:4px;gap:4px;margin-bottom:18px}
+  .seg button{background:transparent;border:0;color:var(--muted);font:inherit;font-size:13px;font-weight:600;padding:7px 14px;border-radius:7px;cursor:pointer;transition:.15s}
+  .seg button:hover{color:var(--text)}
+  .seg button.on{background:#1b2532;color:var(--text);box-shadow:inset 0 0 0 1px #2b394d}
+  input[type=range]{width:100%;accent-color:var(--accent);margin:9px 0 0}
+  .plot{width:100%;height:auto;background:#0a0f16;border:1px solid var(--line);border-radius:12px;margin-top:18px}
+  footer{margin-top:28px;display:flex;flex-wrap:wrap;gap:10px;justify-content:space-between;color:var(--muted);font-size:12.5px}
+  footer a{color:var(--muted);text-decoration:none;border-bottom:1px dotted #3a4453}
+  footer a:hover{color:var(--text)}
+  .toast{position:fixed;bottom:22px;left:50%;transform:translate(-50%,16px);background:#16212e;color:var(--text);border:1px solid #2b3949;padding:9px 16px;border-radius:999px;font-size:13px;opacity:0;pointer-events:none;transition:.2s}
+  .toast.show{opacity:1;transform:translate(-50%,0)}
+  @media (max-width:640px){
+    .grid2{grid-template-columns:1fr}
+    .readout .big{font-size:24px}
+    .tab{font-size:13px;padding:8px 10px}
+    .res-shape{width:200px;padding:0 22px}
+    .res-lead{width:40px}
+    .wrap{padding:20px 14px 48px}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <div>
+      <h1>ECE Toolbox<span class="dot">.</span></h1>
+      <p class="tagline">Everyday electronics math, without the calculator app shuffle.</p>
+    </div>
+    <div class="badges">
+      <a href="https://github.com/Dynamix14/ece-toolbox" target="_blank" rel="noopener">GitHub</a>
+      <a href="#resistor" id="top-share">Copy link</a>
+    </div>
+  </header>
+
+  <nav class="tabs" role="tablist" aria-label="Calculators">
+    <button class="tab active" role="tab" aria-selected="true" data-tool="resistor">Resistor</button>
+    <button class="tab" role="tab" aria-selected="false" data-tool="ohm">Ohm's Law</button>
+    <button class="tab" role="tab" aria-selected="false" data-tool="divider">Divider</button>
+    <button class="tab" role="tab" aria-selected="false" data-tool="rc">RC Filter</button>
+  </nav>
+
+  <main>
+    <!-- RESISTOR -->
+    <section class="tool active card" id="resistor" role="tabpanel" aria-label="Resistor color code">
+      <div class="seg" id="res-count">
+        <button class="on" data-count="4">4-band</button>
+        <button data-count="5">5-band</button>
+        <button data-count="6">6-band</button>
+      </div>
+
+      <div class="res-stage">
+        <div class="res-lead"></div>
+        <div class="res-shape" id="res-visual"></div>
+        <div class="res-lead r"></div>
+      </div>
+
+      <div class="band-list" id="res-bands"></div>
+
+      <div class="readout">
+        <span class="big" id="res-value">27 kΩ</span>
+        <span class="sub" id="res-meta">±5% · 4-band</span>
+      </div>
+      <p class="hint">Click a band to cycle its color. Suffix-free — the readout updates as you go.</p>
+    </section>
+
+    <!-- OHM -->
+    <section class="tool card" id="ohm" role="tabpanel" aria-label="Ohm's law">
+      <p class="hint" style="margin:0 0 16px">Fill any <strong>two</strong> fields — the other two solve automatically. Accepts suffixes: <code>4.7k</code>, <code>10m</code>, <code>2M</code>, <code>100n</code>.</p>
+      <div class="grid2">
+        <div><label class="fld" for="ohm-V">Voltage</label><input type="text" id="ohm-V" data-key="V" placeholder="e.g. 10" autocomplete="off" spellcheck="false"></div>
+        <div><label class="fld" for="ohm-I">Current</label><input type="text" id="ohm-I" data-key="I" placeholder="e.g. 2m" autocomplete="off" spellcheck="false"></div>
+        <div><label class="fld" for="ohm-R">Resistance</label><input type="text" id="ohm-R" data-key="R" placeholder="e.g. 5k" autocomplete="off" spellcheck="false"></div>
+        <div><label class="fld" for="ohm-P">Power</label><input type="text" id="ohm-P" data-key="P" placeholder="e.g. 20m" autocomplete="off" spellcheck="false"></div>
+      </div>
+      <div class="err" id="ohm-err"></div>
+      <div class="readout">
+        <span class="big" id="ohm-out">—</span>
+        <span class="sub" id="ohm-detail"></span>
+      </div>
+    </section>
+
+    <!-- DIVIDER -->
+    <section class="tool card" id="divider" role="tabpanel" aria-label="Voltage divider">
+      <div class="seg" id="div-mode">
+        <button class="on" data-mode="fwd">Vin → Vout</button>
+        <button data-mode="inv">Vout → R2</button>
+      </div>
+      <div class="grid2">
+        <div><label class="fld" for="div-vin">Vin</label><input type="text" id="div-vin" value="12" autocomplete="off" spellcheck="false"></div>
+        <div><label class="fld" for="div-r1">R1 (top)</label><input type="text" id="div-r1" value="10k" autocomplete="off" spellcheck="false"></div>
+        <div id="div-r2-wrap"><label class="fld" for="div-r2">R2 (bottom)</label><input type="text" id="div-r2" value="2.2k" autocomplete="off" spellcheck="false"></div>
+        <div id="div-target-wrap" style="display:none"><label class="fld" for="div-target">Target Vout</label><input type="text" id="div-target" value="3.3" autocomplete="off" spellcheck="false"></div>
+      </div>
+      <div class="err" id="div-err"></div>
+      <div class="readout">
+        <span class="big" id="div-out">2.164 V</span>
+        <span class="sub" id="div-detail">I = 984 µA · P = 11.8 mW</span>
+      </div>
+    </section>
+
+    <!-- RC -->
+    <section class="tool card" id="rc" role="tabpanel" aria-label="RC filter">
+      <div class="grid2">
+        <div>
+          <label class="fld" for="rc-r">Resistance</label>
+          <input type="text" id="rc-r" value="1k" autocomplete="off" spellcheck="false">
+          <input type="range" id="rc-r-slider" min="0" max="7" step="0.01" value="3" aria-label="Resistance slider">
+        </div>
+        <div>
+          <label class="fld" for="rc-c">Capacitance</label>
+          <input type="text" id="rc-c" value="100n" autocomplete="off" spellcheck="false">
+          <input type="range" id="rc-c-slider" min="-12" max="-3" step="0.01" value="-7" aria-label="Capacitance slider">
+        </div>
+      </div>
+      <div class="err" id="rc-err"></div>
+      <div class="readout">
+        <span class="big" id="rc-fc">1.5915 kHz</span>
+        <span class="sub" id="rc-tau">τ = 100 µs · −3 dB point</span>
+      </div>
+      <svg class="plot" id="rc-plot" viewBox="0 0 560 200" preserveAspectRatio="none" role="img" aria-label="RC low-pass magnitude response"></svg>
+      <p class="hint">First-order low-pass. Curve is |H| in dB against frequency; the dashed line marks the cutoff.</p>
+    </section>
+  </main>
+
+  <footer>
+    <span>Single file · no build step · works offline</span>
+    <span><a href="https://github.com/Dynamix14" target="_blank" rel="noopener">github.com/Dynamix14</a></span>
+  </footer>
+</div>
+
+<div class="toast" id="toast">Copied</div>
+
+<script>
+/* CORE-START — pure logic, extracted and tested by test/test-core.mjs */
+function parseEng(s){
+  if (typeof s !== 'string') return null;
+  var t = s.trim();
+  if (!t) return null;
+  t = t.replace(/\s*(?:ohms?|Ω|hz|F|V|A|W|H)$/i, '').trim();
+  if (!t) return null;
+  var m = t.match(/^([+-]?(?:\d+\.?\d*|\.\d+))\s*([a-zA-ZµμΩ]*)$/);
+  if (!m) return null;                       /* rejects EIA forms like 4k7 */
+  var num = parseFloat(m[1]);
+  if (!isFinite(num)) return null;
+  var tail = m[2];
+  if (!tail) return num;
+  var mults = {k:1e3,K:1e3,M:1e6,G:1e9,T:1e12,m:1e-3,u:1e-6,'µ':1e-6,'μ':1e-6,n:1e-9,p:1e-12};
+  var mult = mults[tail[0]];
+  if (mult === undefined) return null;
+  if (tail.length > 1) return null;          /* one multiplier letter only */
+  return num * mult;
+}
+
+function formatEng(value, unit){
+  unit = unit || '';
+  if (value === null || value === undefined || !isFinite(value)) return '—';
+  if (value === 0) return '0 ' + unit;
+  var abs = Math.abs(value);
+  var e3 = Math.floor(Math.log10(abs) / 3) * 3;
+  if (e3 < -12) e3 = -12;
+  if (e3 > 12) e3 = 12;
+  var mant = value / Math.pow(10, e3);
+  if (Math.abs(mant) >= 1000) { mant /= 1000; e3 += 3; }
+  if (Math.abs(mant) < 1) { mant *= 1000; e3 -= 3; }
+  var prefixes = {'-12':'p','-9':'n','-6':'µ','-3':'m','0':'','3':'k','6':'M','9':'G','12':'T'};
+  var prefix = prefixes[String(e3)];
+  if (prefix === undefined) prefix = 'e' + e3;
+  var digits = String(parseFloat(mant.toPrecision(5)));
+  return digits + ' ' + prefix + unit;
+}
+
+/* Solve Ohm's law / power from exactly the known values supplied. */
+function ohmSolve(known){
+  var V = known.V, I = known.I, R = known.R, P = known.P;
+  if (V !== undefined && I !== undefined){
+    if (I === 0) return {error:'Current cannot be zero'};
+    R = V / I; P = V * I;
+  } else if (V !== undefined && R !== undefined){
+    if (R === 0) return {error:'Resistance cannot be zero'};
+    I = V / R; P = V * V / R;
+  } else if (V !== undefined && P !== undefined){
+    if (V === 0) return {error:'Voltage cannot be zero'};
+    I = P / V; R = V * V / P;
+  } else if (I !== undefined && R !== undefined){
+    V = I * R; P = I * I * R;
+  } else if (I !== undefined && P !== undefined){
+    if (I === 0) return {error:'Current cannot be zero'};
+    V = P / I; R = P / (I * I);
+  } else if (R !== undefined && P !== undefined){
+    if (R === 0) return {error:'Resistance cannot be zero'};
+    I = Math.sqrt(P / R); V = Math.sqrt(P * R);
+  } else {
+    return null;
+  }
+  return {V:V, I:I, R:R, P:P};
+}
+
+function dividerVout(vin, r1, r2){
+  if (!(r1 >= 0) || !(r2 >= 0)) return null;
+  if (r1 + r2 === 0) return null;
+  return vin * r2 / (r1 + r2);
+}
+
+function dividerR2(vin, r1, vout){
+  if (!(vin > 0) || !(vout > 0)) return null;
+  if (vout >= vin) return null;
+  return vout * r1 / (vin - vout);
+}
+
+function rcCutoff(r, c){
+  if (!(r > 0) || !(c > 0)) return null;
+  return 1 / (2 * Math.PI * r * c);
+}
+
+function rcMagnitudeDb(f, fc){
+  return -10 * Math.log10(1 + (f / fc) * (f / fc));
+}
+
+function resistorValue(digits, multExp){
+  var mant = 0;
+  for (var i = 0; i < digits.length; i++) mant = mant * 10 + digits[i];
+  return mant * Math.pow(10, multExp);
+}
+
+var E24 = [10,11,12,13,15,16,18,20,22,24,27,30,33,36,39,43,47,51,56,62,68,75,82,91];
+function nearestE24(value){
+  if (!(value > 0)) return null;
+  var exp = Math.floor(Math.log10(value)) - 1;
+  var best = null;
+  for (var e = exp - 1; e <= exp + 1; e++){
+    for (var i = 0; i < E24.length; i++){
+      var cand = E24[i] * Math.pow(10, e);
+      if (best === null || Math.abs(Math.log(cand / value)) < Math.abs(Math.log(best / value))) best = cand;
+    }
+  }
+  return best;
+}
+/* CORE-END */
+
+/* ---------- UI ---------- */
+(function(){
+  var $ = function(id){ return document.getElementById(id); };
+
+  /* tabs */
+  var tabs = [].slice.call(document.querySelectorAll('.tab'));
+  var panels = [].slice.call(document.querySelectorAll('.tool'));
+  function activate(name){
+    tabs.forEach(function(t){
+      var on = t.dataset.tool === name;
+      t.classList.toggle('active', on);
+      t.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
+    panels.forEach(function(p){ p.classList.toggle('active', p.id === name); });
+    try { history.replaceState(null, '', '#' + name); } catch(e){}
+  }
+  tabs.forEach(function(t){ t.addEventListener('click', function(){ activate(t.dataset.tool); }); });
+  var start = (location.hash || '').replace('#','');
+  if (start && $(''.concat(start))) activate(start);
+  $('top-share').addEventListener('click', function(ev){
+    ev.preventDefault();
+    var link = location.origin + location.pathname + location.hash;
+    copyText(link);
+  });
+
+  function copyText(txt){
+    var done = function(){ toast('Copied link'); };
+    if (navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(txt).then(done, function(){ toast('Copy failed'); });
+    } else { toast('Copy not available'); }
+  }
+  var toastTimer = null;
+  function toast(msg){
+    var el = $('toast');
+    el.textContent = msg;
+    el.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function(){ el.classList.remove('show'); }, 1600);
+  }
+
+  /* ---------- resistor ---------- */
+  var DIGIT = [
+    {n:'Black', h:'#151a23', v:0}, {n:'Brown', h:'#8b5a2b', v:1},
+    {n:'Red',   h:'#e23a32', v:2}, {n:'Orange',h:'#f08a24', v:3},
+    {n:'Yellow',h:'#f2cb2e', v:4}, {n:'Green', h:'#39a852', v:5},
+    {n:'Blue',  h:'#3a6fe0', v:6}, {n:'Violet',h:'#8e5cf7', v:7},
+    {n:'Grey',  h:'#a0a6b1', v:8}, {n:'White', h:'#f5f7fa', v:9}
+  ];
+  var MULT = DIGIT.map(function(c){ return {n:c.n, h:c.h, exp:c.v}; })
+    .concat([{n:'Gold', h:'#d4af37', exp:-1}, {n:'Silver', h:'#c6cbd4', exp:-2}]);
+  var TOL = [
+    {n:'Brown', h:'#8b5a2b', v:1}, {n:'Red', h:'#e23a32', v:2},
+    {n:'Green', h:'#39a852', v:0.5}, {n:'Blue', h:'#3a6fe0', v:0.25},
+    {n:'Violet', h:'#8e5cf7', v:0.1}, {n:'Grey', h:'#a0a6b1', v:0.05},
+    {n:'Gold', h:'#d4af37', v:5}, {n:'Silver', h:'#c6cbd4', v:10}
+  ];
+  var TEMP = [
+    {n:'Brown', h:'#8b5a2b', v:100}, {n:'Red', h:'#e23a32', v:50},
+    {n:'Orange', h:'#f08a24', v:15}, {n:'Yellow', h:'#f2cb2e', v:25},
+    {n:'Blue', h:'#3a6fe0', v:10}, {n:'Violet', h:'#8e5cf7', v:5}
+  ];
+
+  var res = { count:4, digits:[2,7,2], mult:3, tol:6, temp:0 };
+  var BAND_LABELS = ['Digit 1','Digit 2','Digit 3','Multiplier','Tolerance','Tempco'];
+
+  function resBands(){
+    var list = [];
+    var n = res.count === 4 ? 2 : 3;
+    for (var i = 0; i < n; i++) list.push({kind:'digit', idx:i, label:BAND_LABELS[i]});
+    list.push({kind:'mult', label:'Multiplier'});
+    list.push({kind:'tol', label:'Tolerance'});
+    if (res.count === 6) list.push({kind:'temp', label:'Tempco'});
+    return list;
+  }
+
+  function bandColor(band){
+    if (band.kind === 'digit') return DIGIT[res.digits[band.idx]];
+    if (band.kind === 'mult') return MULT[res.mult];
+    if (band.kind === 'tol') return TOL[res.tol];
+    return TEMP[res.temp];
+  }
+
+  function bandValueText(band){
+    if (band.kind === 'digit') return '×1 digit ' + DIGIT[res.digits[band.idx]].v;
+    if (band.kind === 'mult') return '×10^' + MULT[res.mult].exp;
+    if (band.kind === 'tol') return '±' + TOL[res.tol].v + '%';
+    return TEMP[res.temp].v + ' ppm/°C';
+  }
+
+  function cycleBand(band){
+    if (band.kind === 'digit') res.digits[band.idx] = (res.digits[band.idx] + 1) % 10;
+    else if (band.kind === 'mult') res.mult = (res.mult + 1) % MULT.length;
+    else if (band.kind === 'tol') res.tol = (res.tol + 1) % TOL.length;
+    else res.temp = (res.temp + 1) % TEMP.length;
+    renderResistor();
+  }
+
+  function renderResistor(){
+    var bands = resBands();
+    var list = $('res-bands');
+    list.innerHTML = '';
+    bands.forEach(function(b){
+      var c = bandColor(b);
+      var row = document.createElement('div');
+      row.className = 'band-row';
+      row.tabIndex = 0;
+      row.setAttribute('role', 'button');
+      row.setAttribute('aria-label', b.label + ': ' + c.n + ', click to change');
+      var sw = document.createElement('span');
+      sw.className = 'sw';
+      sw.style.background = c.h;
+      var who = document.createElement('span');
+      who.className = 'who';
+      who.textContent = b.label;
+      var name = document.createElement('span');
+      name.className = 'cname';
+      name.textContent = c.n;
+      var val = document.createElement('span');
+      val.className = 'cval';
+      val.textContent = bandValueText(b);
+      row.appendChild(sw); row.appendChild(who); row.appendChild(name); row.appendChild(val);
+      row.addEventListener('click', function(){ cycleBand(b); });
+      row.addEventListener('keydown', function(ev){
+        if (ev.key === 'Enter' || ev.key === ' '){ ev.preventDefault(); cycleBand(b); }
+      });
+      list.appendChild(row);
+    });
+
+    var vis = $('res-visual');
+    vis.innerHTML = '';
+    bands.forEach(function(b){
+      var seg = document.createElement('span');
+      seg.className = 'band';
+      seg.style.background = bandColor(b).h;
+      vis.appendChild(seg);
+    });
+
+    var digits = res.count === 4 ? res.digits.slice(0,2) : res.digits.slice(0,3);
+    var value = resistorValue(digits, MULT[res.mult].exp);
+    var meta = '±' + TOL[res.tol].v + '% · ' + res.count + '-band';
+    if (res.count === 6) meta += ' · ' + TEMP[res.temp].v + ' ppm/°C';
+    $('res-value').textContent = formatEng(value, 'Ω');
+    $('res-meta').textContent = meta;
+  }
+
+  $('res-count').addEventListener('click', function(ev){
+    var btn = ev.target.closest('button[data-count]');
+    if (!btn) return;
+    res.count = Number(btn.dataset.count);
+    [].forEach.call(this.querySelectorAll('button'), function(b){ b.classList.toggle('on', b === btn); });
+    if (res.count === 5 && res.digits[2] === 2) {
+      /* 682 = blue-grey-red is a friendlier 5-band default than 272 */
+      res.digits = [6,8,2]; res.mult = 1; res.tol = 0;
+    }
+    renderResistor();
+  });
+  renderResistor();
+
+  /* ---------- ohm ---------- */
+  var ohmInputs = {
+    V: $('ohm-V'), I: $('ohm-I'), R: $('ohm-R'), P: $('ohm-P')
+  };
+  var ohmRecent = [];
+
+  function ohmFieldValue(el){
+    var v = parseEng(el.value);
+    return (v === null) ? undefined : v;
+  }
+
+  function ohmRecompute(){
+    [['V','V'],['I','A'],['R','Ω'],['P','W']].forEach(function(pair){
+      var el = ohmInputs[pair[0]];
+      var val = ohmFieldValue(el);
+      el.classList.toggle('invalid', el.value.trim() !== '' && val === undefined);
+    });
+
+    var valid = ohmRecent.filter(function(k){ return ohmFieldValue(ohmInputs[k]) !== undefined; });
+    var err = '';
+    var result = null;
+    if (valid.length >= 2){
+      var known = {};
+      known[valid[0]] = ohmFieldValue(ohmInputs[valid[0]]);
+      known[valid[1]] = ohmFieldValue(ohmInputs[valid[1]]);
+      result = ohmSolve(known);
+      if (result && result.error) { err = result.error; result = null; }
+    }
+
+    if (!result){
+      $('ohm-out').textContent = '—';
+      $('ohm-detail').textContent = valid.length < 2 ? 'Enter any two values' : '';
+      $('ohm-err').textContent = err;
+      return;
+    }
+    $('ohm-err').textContent = '';
+    var units = {V:'V', I:'A', R:'Ω', P:'W'};
+    ['V','I','R','P'].forEach(function(k){
+      var el = ohmInputs[k];
+      var isTyped = valid.indexOf(k) !== -1;
+      el.classList.toggle('computed', !isTyped);
+      if (!isTyped) el.value = formatEng(result[k], units[k]);
+      else el.value = el.value.trim();
+    });
+    $('ohm-out').textContent = formatEng(result.V, 'V') + ' · ' + formatEng(result.I, 'A');
+    $('ohm-detail').textContent = formatEng(result.R, 'Ω') + ' · ' + formatEng(result.P, 'W');
+  }
+
+  Object.keys(ohmInputs).forEach(function(k){
+    ohmInputs[k].addEventListener('input', function(){
+      ohmInputs[k].classList.remove('computed');
+      ohmRecent = ohmRecent.filter(function(x){ return x !== k; });
+      if (ohmInputs[k].value.trim() !== '') ohmRecent.push(k);
+      ohmRecompute();
+    });
+    ohmInputs[k].addEventListener('blur', function(){
+      var v = parseEng(ohmInputs[k].value);
+      if (v !== null && ohmInputs[k].value.trim() !== '') {
+        ohmInputs[k].value = formatEng(v, {V:'V', I:'A', R:'Ω', P:'W'}[k]);
+      }
+    });
+  });
+  ohmRecompute();
+
+  /* ---------- divider ---------- */
+  var divMode = 'fwd';
+  var divVin = $('div-vin'), divR1 = $('div-r1'), divR2 = $('div-r2'), divTarget = $('div-target');
+
+  function dividerRecompute(){
+    var vin = parseEng(divVin.value), r1 = parseEng(divR1.value);
+    var err = '';
+    var out = '—', detail = '';
+    [divVin, divR1, divR2, divTarget].forEach(function(el){
+      el.classList.toggle('invalid', el.value.trim() !== '' && parseEng(el.value) === null);
+    });
+
+    if (vin === undefined || vin === null) { err = ''; }
+    else if (r1 === undefined || r1 === null) { err = ''; }
+    else if (divMode === 'fwd'){
+      var r2 = parseEng(divR2.value);
+      var vout = (r2 === null || r2 === undefined) ? null : dividerVout(vin, r1, r2);
+      if (vout === null && r2 !== null && r2 !== undefined) err = 'Check resistances — R1 + R2 must be > 0';
+      else if (vout !== null) {
+        out = formatEng(vout, 'V');
+        var i = vin / (r1 + r2), p = vin * vin / (r1 + r2);
+        detail = 'I = ' + formatEng(i, 'A') + ' · P = ' + formatEng(p, 'W');
+      }
+    } else {
+      var vt = parseEng(divTarget.value);
+      var r2i = (vt === null || vt === undefined) ? null : dividerR2(vin, r1, vt);
+      if (vt !== null && vt !== undefined && r2i === null) err = 'Target Vout must be > 0 and below Vin';
+      else if (r2i !== null) {
+        out = formatEng(r2i, 'Ω');
+        var e24 = nearestE24(r2i);
+        detail = 'R2 · nearest E24: ' + formatEng(e24, 'Ω');
+      }
+    }
+    $('div-out').textContent = out;
+    $('div-detail').textContent = detail;
+    $('div-err').textContent = err;
+  }
+
+  [divVin, divR1, divR2, divTarget].forEach(function(el){
+    el.addEventListener('input', dividerRecompute);
+  });
+  $('div-mode').addEventListener('click', function(ev){
+    var btn = ev.target.closest('button[data-mode]');
+    if (!btn) return;
+    divMode = btn.dataset.mode;
+    [].forEach.call(this.querySelectorAll('button'), function(b){ b.classList.toggle('on', b === btn); });
+    $('div-r2-wrap').style.display = divMode === 'fwd' ? '' : 'none';
+    $('div-target-wrap').style.display = divMode === 'inv' ? '' : 'none';
+    dividerRecompute();
+  });
+  dividerRecompute();
+
+  /* ---------- rc ---------- */
+  var rcR = $('rc-r'), rcC = $('rc-c');
+  var rcRSlider = $('rc-r-slider'), rcCSlider = $('rc-c-slider');
+
+  function drawRc(fc){
+    var svg = $('rc-plot');
+    var W = 560, H = 200, padL = 44, padR = 14, padT = 14, padB = 28;
+    var innerW = W - padL - padR, innerH = H - padT - padB;
+    var x = function(t){ return padL + t * innerW; };
+    var y = function(db){ return padT + (-db / 40) * innerH; };
+
+    var parts = [];
+    /* grid: dB lines */
+    [0, -10, -20, -30, -40].forEach(function(db){
+      parts.push('<line x1="' + padL + '" y1="' + y(db).toFixed(1) + '" x2="' + (W - padR) + '" y2="' + y(db).toFixed(1) + '" stroke="#1b2431" stroke-width="1"/>');
+      parts.push('<text x="' + (padL - 8) + '" y="' + (y(db) + 4).toFixed(1) + '" fill="#7c8798" font-size="10" text-anchor="end" font-family="ui-monospace,monospace">' + db + '</text>');
+    });
+    /* decades */
+    [0, 0.25, 0.5, 0.75, 1].forEach(function(t){
+      parts.push('<line x1="' + x(t).toFixed(1) + '" y1="' + padT + '" x2="' + x(t).toFixed(1) + '" y2="' + (H - padB) + '" stroke="#141c27" stroke-width="1"/>');
+      var label = t === 0.5 ? 'fc' : (t < 0.5 ? 'fc/' + Math.round(Math.pow(10, (0.5 - t) * 4)) : Math.round(Math.pow(10, (t - 0.5) * 4)) + 'fc');
+      parts.push('<text x="' + x(t).toFixed(1) + '" y="' + (H - padB + 16) + '" fill="#7c8798" font-size="10" text-anchor="middle" font-family="ui-monospace,monospace">' + label + '</text>');
+    });
+    /* curve */
+    var d = '';
+    for (var i = 0; i <= 140; i++){
+      var t = i / 140;
+      var f = fc * Math.pow(10, 4 * (t - 0.5));
+      var px = x(t).toFixed(1), py = y(rcMagnitudeDb(f, fc)).toFixed(1);
+      d += (i === 0 ? 'M' : 'L') + px + ' ' + py;
+    }
+    parts.push('<path d="' + d + '" fill="none" stroke="#3ee0b0" stroke-width="2.4" stroke-linejoin="round"/>');
+    /* -3 dB marker */
+    parts.push('<line x1="' + x(0.5).toFixed(1) + '" y1="' + padT + '" x2="' + x(0.5).toFixed(1) + '" y2="' + y(-3).toFixed(1) + '" stroke="#6aa9ff" stroke-width="1.5" stroke-dasharray="4 4"/>');
+    parts.push('<circle cx="' + x(0.5).toFixed(1) + '" cy="' + y(-3).toFixed(1) + '" r="4" fill="#6aa9ff"/>');
+    parts.push('<text x="' + (x(0.5) + 8).toFixed(1) + '" y="' + (y(-3) - 7).toFixed(1) + '" fill="#8fb8ff" font-size="10" font-family="ui-monospace,monospace">-3 dB</text>');
+    svg.innerHTML = parts.join('');
+  }
+
+  function rcCompute(){
+    var r = parseEng(rcR.value), c = parseEng(rcC.value);
+    rcR.classList.toggle('invalid', rcR.value.trim() !== '' && r === null);
+    rcC.classList.toggle('invalid', rcC.value.trim() !== '' && c === null);
+    var fc = (r !== null && c !== null) ? rcCutoff(r, c) : null;
+    if (fc === null){
+      $('rc-fc').textContent = '—';
+      $('rc-tau').textContent = 'Enter R and C';
+      $('rc-err').textContent = (r !== null || c !== null) ? 'R and C must be positive' : '';
+      return;
+    }
+    $('rc-err').textContent = '';
+    $('rc-fc').textContent = formatEng(fc, 'Hz');
+    $('rc-tau').textContent = 'τ = ' + formatEng(r * c, 's') + ' · −3 dB point';
+    drawRc(fc);
+  }
+
+  rcR.addEventListener('input', function(){
+    var v = parseEng(rcR.value);
+    if (v !== null && v > 0){
+      var e = Math.log10(v);
+      if (e >= 0 && e <= 7) rcRSlider.value = e;
+    }
+    rcCompute();
+  });
+  rcC.addEventListener('input', function(){
+    var v = parseEng(rcC.value);
+    if (v !== null && v > 0){
+      var e = Math.log10(v);
+      if (e >= -12 && e <= -3) rcCSlider.value = e;
+    }
+    rcCompute();
+  });
+  rcRSlider.addEventListener('input', function(){
+    rcR.value = formatEng(Math.pow(10, Number(this.value)), 'Ω');
+    rcCompute();
+  });
+  rcCSlider.addEventListener('input', function(){
+    rcC.value = formatEng(Math.pow(10, Number(this.value)), 'F');
+    rcCompute();
+  });
+  rcCompute();
+})();
+</script>
+</body>
+</html>
